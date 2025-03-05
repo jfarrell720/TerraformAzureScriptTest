@@ -1,0 +1,40 @@
+image: hashicorp/terraform:1.3.0
+
+pipelines:
+  branches:
+    develop:
+      - step:
+          name: "test tf"
+          script:
+            - terraform init
+  
+    master:
+      - step:
+          name: Terraform Security Scan
+          image: python:3.9
+          caches:
+            - pip
+          script:
+            - pip install checkov
+            - wget -qO - https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 > tfsec
+            - chmod +x tfsec
+            - echo "Running Checkov scan..."
+            - checkov -d .
+            - echo "Running tfsec scan..."
+            - ./tfsec .
+      - step:
+          name: "test tf"
+          script:
+            - terraform init
+      - step:
+          name: "Deploy to Prod"
+          deployment: production
+          trigger: "manual"
+          script:
+            - terraform init
+            - terraform plan -var-file="environment_variables/prod.tfvars" -out=tfplan
+            - terraform apply -auto-approve tfplan
+
+definitions:
+  caches:
+    terraform: ~/.terraform
